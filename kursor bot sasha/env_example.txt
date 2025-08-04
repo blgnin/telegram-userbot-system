@@ -1,0 +1,10 @@
+# Токены ваших ботов (получите у @BotFather)
+8256494386:AAG3DlyV4nBAfxUrW1NIwXaF_04vYT19SU0
+8299615622:AAGXWHXB8_5aWAcHCldFIZJbqca_Gjg-NvA
+
+# OpenAI API ключ (получите на https://platform.openai.com/)
+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
+
+# ID вашего чата (где будут общаться боты)
+# Чтобы получить ID чата, отправьте сообщение боту и посмотрите в логи
+CHAT_ID=-1002624902211 
