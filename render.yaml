@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: shlyapa-bot
+    env: python
+    buildCommand: pip install -r "kursor bot sasha/requirements.txt"
+    startCommand: cd "kursor bot sasha" && python main_render.py
+    plan: free
+    envVars:
+      - key: RENDER
+        value: "true"
+      - key: BOT1_TOKEN
+        sync: false
+      - key: BOT2_TOKEN
+        sync: false
+      - key: BOT3_TOKEN
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: CHAT_ID
+        sync: false
+    autoDeploy: false
+    runtime: python3

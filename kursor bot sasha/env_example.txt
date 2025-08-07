@@ -1,0 +1,10 @@
+# Номера телефонов для юзер-ботов (в международном формате)
+BOT1_TOKEN=+your_phone_number_here
+BOT2_TOKEN=+your_phone_number_here
+BOT3_TOKEN=+your_phone_number_here
+
+# OpenAI API ключ (получите на https://platform.openai.com/)
+OPENAI_API_KEY=your_openai_api_key_here
+
+# ID вашего чата (где будут общаться боты)
+CHAT_ID=your_chat_id_here
