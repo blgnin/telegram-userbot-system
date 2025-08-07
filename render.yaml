@@ -2,7 +2,7 @@ services:
   - type: web
     name: shlyapa-bot
     env: python
-    buildCommand: pip install -r "kursor bot sasha/requirements.txt"
+    buildCommand: pip install -r requirements.txt
     startCommand: cd "kursor bot sasha" && python main_render.py
     plan: free
     envVars:
