@@ -1,34 +1,19 @@
 import os
 from dotenv import load_dotenv
-from pathlib import Path
 
-# Определяем режим работы (локальный или продакшен)
-RENDER_MODE = os.environ.get('RENDER', False)
+# Загружаем переменные из файла shlyapa1.env
+load_dotenv('shlyapa1.env')
 
-if not RENDER_MODE:
-    # Локальный режим - загружаем из .env файла
-    current_dir = Path(__file__).parent
-    load_dotenv(current_dir / 'shlyapa1.env')
-    print("🏠 Режим: Локальная разработка")
-else:
-    # Продакшен режим - используем системные переменные
-    print("☁️ Режим: Render.com продакшен")
+# Номера телефонов для юзер-ботов (замените на реальные номера)
+BOT1_TOKEN = os.getenv('BOT1_TOKEN', 'your_phone1_here')  # Теперь это номер телефона
+BOT2_TOKEN = os.getenv('BOT2_TOKEN', 'your_phone2_here')  # Теперь это номер телефона
+BOT3_TOKEN = os.getenv('BOT3_TOKEN', '+38268207785')  # Алевтина
 
-# Номера телефонов для юзер-ботов
-BOT1_TOKEN = os.getenv('BOT1_TOKEN', 'your_phone1_here')
-BOT2_TOKEN = os.getenv('BOT2_TOKEN', 'your_phone2_here')  
-BOT3_TOKEN = os.getenv('BOT3_TOKEN', '+38268207785')
-
-# Отладочная информация (скрываем номера в продакшене)
+# Отладочная информация
 print(f"🔍 Загруженные номера телефонов:")
-if RENDER_MODE:
-    print(f"BOT1_TOKEN: {'***' + BOT1_TOKEN[-4:] if BOT1_TOKEN and len(BOT1_TOKEN) > 4 else 'НЕ НАЙДЕН'}")
-    print(f"BOT2_TOKEN: {'***' + BOT2_TOKEN[-4:] if BOT2_TOKEN and len(BOT2_TOKEN) > 4 else 'НЕ НАЙДЕН'}")
-    print(f"BOT3_TOKEN: {'***' + BOT3_TOKEN[-4:] if BOT3_TOKEN and len(BOT3_TOKEN) > 4 else 'НЕ НАЙДЕН'}")
-else:
-    print(f"BOT1_TOKEN: {BOT1_TOKEN}")
-    print(f"BOT2_TOKEN: {BOT2_TOKEN}")
-    print(f"BOT3_TOKEN: {BOT3_TOKEN}")
+print(f"BOT1_TOKEN: {BOT1_TOKEN}")
+print(f"BOT2_TOKEN: {BOT2_TOKEN}")
+print(f"BOT3_TOKEN: {BOT3_TOKEN}")
 
 # OpenAI API ключ
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', 'your_openai_api_key_here')

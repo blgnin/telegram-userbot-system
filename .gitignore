@@ -3,8 +3,8 @@
 shlyapa1.env
 temp_key.txt
 
-# Сессии Telegram
-*.session
+# Сессии Telegram (для Render.com нужны session файлы)
+# *.session - ОТКЛЮЧЕНО для деплоя
 *.session-journal
 
 # Экспорты чатов (большие файлы)
