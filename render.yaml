@@ -3,7 +3,7 @@ services:
     name: shlyapa-bot
     env: python
     buildCommand: pip install telethon==1.34.0 openai==1.3.0 python-dotenv==1.0.0 aiohttp==3.9.1 python-telegram-bot==20.7
-               startCommand: python "kursor bot sasha/main_render.py"
+               startCommand: find /opt -name "main_render.py" -exec python {} \;
     plan: free
     envVars:
       - key: RENDER
