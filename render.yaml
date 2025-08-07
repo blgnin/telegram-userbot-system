@@ -3,7 +3,7 @@ services:
     name: shlyapa-bot
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: cd "kursor bot sasha" && python main_render.py
+    startCommand: python "kursor bot sasha/main_render.py"
     plan: free
     envVars:
       - key: RENDER
