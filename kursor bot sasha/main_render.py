@@ -7,6 +7,7 @@ import logging
 import tracemalloc
 import os
 from userbot_manager import UserBotManager
+from web_server import start_web_server
 
 # Включаем tracemalloc для отслеживания памяти
 tracemalloc.start()
@@ -41,6 +42,11 @@ async def main():
             return
         
         logger.info("✅ Все переменные окружения найдены")
+        
+        # Запускаем веб-сервер для Render.com
+        logger.info("🌐 Запуск веб-сервера для Render.com...")
+        web_server = start_web_server()
+        logger.info("✅ Веб-сервер запущен успешно")
         
         # Создаем менеджер юзер-ботов
         logger.info("📱 Создание менеджера юзер-ботов...")
