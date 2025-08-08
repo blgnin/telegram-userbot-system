@@ -197,7 +197,16 @@ class UserBotManager:
             
             # Проверяем, является ли это ответом на сообщение (Reply), упоминанием (@) или обычным сообщением
             is_reply = event.message.reply_to is not None
-            is_mention = event.message.mentioned and (BOT1_NAME in event.message.text or BOT2_NAME in event.message.text)
+            # Улучшенная проверка упоминаний через @
+            is_mention = ('@' in message_text and (
+                BOT1_NAME in message_text or 
+                BOT2_NAME in message_text or 
+                BOT3_NAME in message_text or
+                'daniel' in message_text.lower() or
+                'leonardo' in message_text.lower() or
+                'алевтина' in message_text.lower() or
+                'алевтину' in message_text.lower()
+            ))
             
             # Обрабатываем только Reply или упоминания (@)
             if is_reply or is_mention:
@@ -265,19 +274,18 @@ class UserBotManager:
                             return
                 elif is_mention:
                     # Если это упоминание, определяем по имени в сообщении
-                    if BOT1_NAME in message_text:
+                    if BOT1_NAME in message_text or 'daniel' in message_text.lower():
                         bot_name = BOT1_NAME
-                    elif BOT2_NAME in message_text:
+                        logger.info(f"✅ Упоминание Daniel")
+                    elif BOT2_NAME in message_text or 'leonardo' in message_text.lower():
                         bot_name = BOT2_NAME
-                    elif BOT3_NAME in message_text:
+                        logger.info(f"✅ Упоминание Leonardo")
+                    elif BOT3_NAME in message_text or 'алевтина' in message_text.lower() or 'алевтину' in message_text.lower():
                         bot_name = BOT3_NAME
+                        logger.info(f"✅ Упоминание Алевтины")
                     else:
                         logger.info(f"🚫 Неизвестное упоминание, игнорируем")
                         return
-                else:
-                    # Если это упоминание, но не удалось определить бота
-                    logger.info(f"🚫 Не удалось определить бота для упоминания: {message_text}")
-                    return
                         
                 # Проверяем, что боты не отвечают на системные сообщения
                 if replied_message and replied_message.text:
