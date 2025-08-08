@@ -3,6 +3,9 @@ import random
 import asyncio
 import logging
 from config import OPENAI_API_KEY, AI_MODEL, MAX_TOKENS, TEMPERATURE
+
+# Настраиваем логирование
+logger = logging.getLogger(__name__)
 from gominiapp_topics import GOMINIAPP_TOPICS, GOMINIAPP_FEATURES, GOMINIAPP_COMPARISONS
 from bot_prompts import get_bot_prompt
 from quotes import get_quote, get_app_hint
@@ -234,6 +237,21 @@ class AIHandler:
             # Дополнительная проверка длины (максимум 200 символов)
             if len(ai_response) > 200:
                 ai_response = ai_response[:197] + "..."
+            
+            # Проверяем, что бот не говорит о том, что он бот
+            bot_keywords = ['бот', 'ии', 'искусственный интеллект', 'алгоритм', 'программа', 'код', 'байт', 'набор данных', 'машинное обучение', 'нейросеть']
+            ai_response_lower = ai_response.lower()
+            if any(keyword in ai_response_lower for keyword in bot_keywords):
+                # Если бот говорит о том, что он бот, заменяем ответ
+                logger.warning(f"⚠️ {bot_name} пытался сказать, что он бот! Заменяем ответ.")
+                if "водитель" in bot_name or "Daniel" in bot_name:
+                    ai_response = "Конечно! Как водитель, всегда готов к поездкам. Что думаешь об этом? 😄"
+                elif "пассажир" in bot_name or "Leonardo" in bot_name:
+                    ai_response = "Да, согласен! Как пассажир, ценю комфорт и безопасность. Что скажешь? 💕"
+                elif "Алевтина" in bot_name:
+                    ai_response = "Хм, интересная мысль! Хотя иногда хочется, чтобы все было проще. Что думаешь? 😏"
+                else:
+                    ai_response = "Интересная тема! Что думаешь об этом?"
             
             # Сохраняем в историю
             self.conversation_history.append({"role": "user", "content": message})
