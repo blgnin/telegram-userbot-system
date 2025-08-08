@@ -550,14 +550,55 @@ class UserBotManager:
                 # Отправляем ТОЛЬКО ОДИН ответ пользователю от правильного бота
                 logger.info(f"📤 Отправляем ЕДИНСТВЕННОЕ сообщение от {bot_name}: {response[:50]}...")
                 logger.info(f"🔍 Сравниваем: bot_name='{bot_name}', BOT1_NAME='{BOT1_NAME}', BOT2_NAME='{BOT2_NAME}', BOT3_NAME='{BOT3_NAME}'")
+                
+                # Если это команда "поговори с [бот]", делаем Reply на последнее сообщение целевого бота
+                if talk_match:
+                    target_bot = talk_match.group(1).lower()
+                    logger.info(f"🎯 Команда 'поговори с {target_bot}' - ищем последнее сообщение целевого бота")
+                    
+                    # Определяем ID целевого бота
+                    target_bot_id = None
+                    if target_bot in ['daniel', 'даниэль', 'данил', 'daniel', 'даниель']:
+                        target_bot_id = me1.id
+                    elif target_bot in ['leonardo', 'леонардо', 'leonardo']:
+                        target_bot_id = me2.id
+                    elif target_bot in ['алевтина', 'алевтину', 'alevtina', 'алевтина']:
+                        target_bot_id = me3.id
+                    
+                    if target_bot_id:
+                        # Ищем последнее сообщение целевого бота в истории
+                        try:
+                            # Получаем последние сообщения из чата
+                            messages = await event.client.get_messages(event.chat_id, limit=50)
+                            target_message = None
+                            
+                            for msg in messages:
+                                if msg.sender_id == target_bot_id and msg.text:
+                                    target_message = msg
+                                    break
+                            
+                            if target_message:
+                                logger.info(f"✅ Найдено сообщение целевого бота для Reply: {target_message.text[:30]}...")
+                                reply_to_message_id = target_message.id
+                            else:
+                                logger.info(f"⚠️ Не найдено сообщение целевого бота, используем обычный Reply")
+                                reply_to_message_id = event.message.id
+                        except Exception as e:
+                            logger.error(f"❌ Ошибка при поиске сообщения целевого бота: {e}")
+                            reply_to_message_id = event.message.id
+                    else:
+                        reply_to_message_id = event.message.id
+                else:
+                    reply_to_message_id = event.message.id
+                
                 if bot_name == BOT1_NAME:  # Daniel
-                    await self.client1.send_message(event.chat_id, response, reply_to=event.message.id)
+                    await self.client1.send_message(event.chat_id, response, reply_to=reply_to_message_id)
                     logger.info(f"✅ {BOT1_NAME} отправил ОДИН ответ через client1")
                 elif bot_name == BOT2_NAME:  # Leonardo
-                    await self.client2.send_message(event.chat_id, response, reply_to=event.message.id)
+                    await self.client2.send_message(event.chat_id, response, reply_to=reply_to_message_id)
                     logger.info(f"✅ {BOT2_NAME} отправил ОДИН ответ через client2")
                 elif bot_name == BOT3_NAME:  # Алевтина
-                    await self.client3.send_message(event.chat_id, response, reply_to=event.message.id)
+                    await self.client3.send_message(event.chat_id, response, reply_to=reply_to_message_id)
                     logger.info(f"✅ {BOT3_NAME} отправила ОДИН ответ через client3")
                 else:
                     logger.error(f"❌ Неизвестный бот: '{bot_name}'. Доступные: '{BOT1_NAME}', '{BOT2_NAME}', '{BOT3_NAME}'")
