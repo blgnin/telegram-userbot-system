@@ -1,0 +1,53 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+docs/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Chat exports (large files)
+ChatExport_*/
+
+# Development files
+debug_*.py
+test_*.py
+
+# Railway/Render configs
+railway.json
+render.yaml
+nixpacks.toml
+
+# Backup files
+*.bak
+*.backup
