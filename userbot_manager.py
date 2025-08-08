@@ -376,6 +376,10 @@ class UserBotManager:
                 else:
                     # Если это обычное сообщение, проверяем обращение по имени
                     logger.info(f"🔍 Проверяем обращение в сообщении: '{message_text}'")
+                    logger.info(f"🔍 Проверяем на Daniel: {any(name in message_text for name in [BOT1_NAME, 'Daniel', 'Даниэль', 'Даниель'])}")
+                    logger.info(f"🔍 Проверяем на Leonardo: {any(name in message_text for name in [BOT2_NAME, 'Leonardo', 'Леонардо'])}")
+                    logger.info(f"🔍 Проверяем на Алевтину: {any(name in message_text for name in [BOT3_NAME, 'Алевтина'])}")
+                    
                     if any(name in message_text for name in [BOT1_NAME, "Daniel", "Даниэль", "Даниель"]) or any(name in message_text.lower() for name in ['daniel', 'даниэль', 'даниель']):
                         bot_name = BOT1_NAME
                         logger.info(f"✅ Обращение к Daniel в сообщении")
