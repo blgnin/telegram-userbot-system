@@ -1,11 +1,7 @@
 import asyncio
 import logging
-import tracemalloc
 from bot_manager import BotManager
 from telegram import Update
-
-# Включаем tracemalloc для отслеживания памяти
-tracemalloc.start()
 
 # Настройка логирования
 logging.basicConfig(
@@ -14,42 +10,46 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+async def run_bot(app, bot_name):
+    """Запускает одного бота"""
+    try:
+        logger.info(f"🔄 Запуск {bot_name}...")
+        await app.run_polling(allowed_updates=Update.ALL_TYPES)
+    except Exception as e:
+        logger.error(f"❌ Ошибка {bot_name}: {e}")
+
 async def main():
     """Главная функция для запуска ботов"""
     try:
         logger.info("🚀 Запуск системы общения ботов...")
-
+        
         # Создаем менеджер ботов
         bot_manager = BotManager()
-
+        
         # Настраиваем приложения для каждого бота
         logger.info("📱 Настройка ботов...")
         app1 = await bot_manager.setup_bot1()
         app2 = await bot_manager.setup_bot2()
-
+        
         logger.info("✅ Боты настроены успешно!")
         logger.info("💬 Используйте команду /start в чате для начала разговора")
         logger.info("🛑 Используйте команду /stop для остановки разговора")
         logger.info("📝 Любое текстовое сообщение - вмешаться в разговор")
-
-        # Запускаем ботов по отдельности
+        
+        # Запускаем ботов одновременно
         logger.info("🔄 Запуск ботов...")
-
-        # Создаем задачи для каждого бота
-        task1 = asyncio.create_task(app1.run_polling(allowed_updates=Update.ALL_TYPES))
-        task2 = asyncio.create_task(app2.run_polling(allowed_updates=Update.ALL_TYPES))
-
-        # Ждем завершения обеих задач
-        await asyncio.gather(task1, task2)
-
+        
+        # Запускаем оба бота одновременно
+        await asyncio.gather(
+            run_bot(app1, "Алексей (водитель)"),
+            run_bot(app2, "Мария (пассажир)")
+        )
+        
     except KeyboardInterrupt:
         logger.info("⏹️  Получен сигнал остановки. Завершение работы...")
     except Exception as e:
         logger.error(f"❌ Ошибка при запуске: {e}")
         logger.error("🔧 Проверьте настройки в файле .env")
-    finally:
-        # Останавливаем tracemalloc
-        tracemalloc.stop()
 
 if __name__ == "__main__":
     try:
