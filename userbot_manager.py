@@ -261,11 +261,8 @@ class UserBotManager:
                             bot_name = BOT3_NAME
                             logger.info(f"✅ Reply на пользователя с упоминанием Алевтины")
                         else:
-                            # Если Reply на пользователя без упоминания, выбираем случайного бота
-                            import random
-                            available_bots = [BOT1_NAME, BOT2_NAME, BOT3_NAME]
-                            bot_name = random.choice(available_bots)
-                            logger.info(f"✅ Reply на пользователя без упоминания → выбираем случайно: {bot_name}")
+                            logger.info(f"🚫 Reply на пользователя без упоминания бота, игнорируем это сообщение")
+                            return
                 elif is_mention:
                     # Если это упоминание, определяем по имени в сообщении
                     if BOT1_NAME in message_text:
@@ -716,8 +713,12 @@ class UserBotManager:
             
             @self.client1.on(events.NewMessage())
             async def message_handler(event):
-                # Обрабатываем все сообщения
+                try:
+                    # Обрабатываем все сообщения
                     await self.handle_message(event)
+                except Exception as e:
+                    logger.error(f"❌ Ошибка в обработчике сообщений client1: {e}")
+                    logger.error(f"🔧 Продолжаем работу несмотря на ошибку")
             
             logger.info(f"✅ {BOT1_NAME} настроен")
             return self.client1
@@ -747,8 +748,12 @@ class UserBotManager:
             
             @self.client2.on(events.NewMessage())
             async def message_handler(event):
-                # Обрабатываем все сообщения
+                try:
+                    # Обрабатываем все сообщения
                     await self.handle_message(event)
+                except Exception as e:
+                    logger.error(f"❌ Ошибка в обработчике сообщений client2: {e}")
+                    logger.error(f"🔧 Продолжаем работу несмотря на ошибку")
             
             logger.info(f"✅ {BOT2_NAME} настроен")
             return self.client2
@@ -778,8 +783,12 @@ class UserBotManager:
             
             @self.client3.on(events.NewMessage())
             async def message_handler(event):
-                # Обрабатываем все сообщения
+                try:
+                    # Обрабатываем все сообщения
                     await self.handle_message(event)
+                except Exception as e:
+                    logger.error(f"❌ Ошибка в обработчике сообщений client3: {e}")
+                    logger.error(f"🔧 Продолжаем работу несмотря на ошибку")
             
             logger.info(f"✅ {BOT3_NAME} настроена")
             return self.client3
