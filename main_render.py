@@ -12,10 +12,10 @@ from web_server import start_web_server
 # Включаем tracemalloc для отслеживания памяти
 tracemalloc.start()
 
-# Настройка логирования
+# Настройка логирования (уменьшено для экономии ресурсов)
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    level=logging.WARNING  # Изменено с INFO на WARNING
 )
 logger = logging.getLogger(__name__)
 
@@ -75,6 +75,10 @@ async def main():
         
         logger.info("💬 Система готова к работе!")
         logger.info("🔄 Запуск юзер-ботов...")
+        
+        # Обновляем статус ботов
+        from web_server import app_status
+        app_status["bots_active"] = True
         
         # Запускаем юзер-ботов
         tasks = [
