@@ -202,14 +202,18 @@ class UserBotManager:
                 BOT1_NAME in message_text or 
                 BOT2_NAME in message_text or 
                 BOT3_NAME in message_text or
-                'daniel' in message_text.lower() or
-                'leonardo' in message_text.lower() or
-                'алевтина' in message_text.lower() or
-                'алевтину' in message_text.lower()
+                any(name in message_text.lower() for name in ['daniel', 'даниэль', 'даниель']) or
+                any(name in message_text.lower() for name in ['leonardo', 'леонардо']) or
+                any(name in message_text.lower() for name in ['алевтина', 'алевтину', 'alevtina'])
             ))
             
-            # Обрабатываем только Reply или упоминания (@)
-            if is_reply or is_mention:
+            # Проверяем команду "поговори с [бот]"
+            talk_to_bot_pattern = r'поговори\s+с\s+(\w+)'
+            import re
+            talk_match = re.search(talk_to_bot_pattern, message_text.lower())
+            
+            # Обрабатываем команду "поговори с [бот]" или Reply/упоминания
+            if talk_match or is_reply or is_mention:
                 logger.info(f"👤 Получен ответ на сообщение: {message_text}")
                 logger.info(f"🔍 ID отправителя: {sender_id}")
                 
@@ -247,7 +251,45 @@ class UserBotManager:
                     replied_message = None
                 
                 # Определяем какой бот должен ответить
-                if is_reply:
+                if talk_match:
+                    # Если это команда "поговори с [бот]"
+                    target_bot = talk_match.group(1).lower()
+                    logger.info(f"🎯 Команда 'поговори с {target_bot}'")
+                    
+                    # Определяем отправителя команды
+                    if sender_id == me1.id:
+                        sender_bot = BOT1_NAME
+                    elif sender_id == me2.id:
+                        sender_bot = BOT2_NAME
+                    elif sender_id == me3.id:
+                        sender_bot = BOT3_NAME
+                    else:
+                        sender_bot = "user"
+                    
+                    # Проверяем, что бот не обращается к самому себе
+                    if sender_bot != "user" and (
+                        (sender_bot == BOT1_NAME and target_bot in ['daniel', 'даниэль', 'данил', 'даниель']) or
+                        (sender_bot == BOT2_NAME and target_bot in ['leonardo', 'леонардо']) or
+                        (sender_bot == BOT3_NAME and target_bot in ['алевтина', 'алевтину', 'alevtina'])
+                    ):
+                        logger.info(f"🚫 Бот {sender_bot} пытается поговорить с самим собой, игнорируем")
+                        return
+                    
+                    # Определяем целевого бота по команде
+                    if target_bot in ['daniel', 'даниэль', 'данил', 'daniel', 'даниель']:
+                        bot_name = BOT1_NAME
+                        logger.info(f"✅ Команда поговорить с Daniel")
+                    elif target_bot in ['leonardo', 'леонардо', 'leonardo']:
+                        bot_name = BOT2_NAME
+                        logger.info(f"✅ Команда поговорить с Leonardo")
+                    elif target_bot in ['алевтина', 'алевтину', 'alevtina', 'алевтина']:
+                        bot_name = BOT3_NAME
+                        logger.info(f"✅ Команда поговорить с Алевтиной")
+                    else:
+                        logger.info(f"🚫 Неизвестный бот в команде: {target_bot}")
+                        return
+                        
+                elif is_reply:
                     # Если это Reply на сообщение бота, отвечает ТОТ ЖЕ бот
                     if replied_message.sender_id == me1.id:  # Если Reply на сообщение Daniel
                         bot_name = BOT1_NAME  # Отвечает Daniel
@@ -260,13 +302,13 @@ class UserBotManager:
                         logger.info(f"✅ Reply на Алевтину → отвечает Алевтина")
                     else:
                         # Если Reply на сообщение пользователя, определяем по упоминаниям
-                        if "Daniel" in message_text or "водитель" in message_text:
+                        if any(name in message_text for name in ["Daniel", "Даниэль", "Даниель", "водитель"]):
                             bot_name = BOT1_NAME
                             logger.info(f"✅ Reply на пользователя с упоминанием Daniel")
-                        elif "Leonardo" in message_text or "пассажир" in message_text:
+                        elif any(name in message_text for name in ["Leonardo", "Леонардо", "пассажир"]):
                             bot_name = BOT2_NAME
                             logger.info(f"✅ Reply на пользователя с упоминанием Leonardo")
-                        elif "Алевтина" in message_text or "критик" in message_text or "алевтина" in message_text:
+                        elif any(name in message_text for name in ["Алевтина", "алевтина", "критик"]):
                             bot_name = BOT3_NAME
                             logger.info(f"✅ Reply на пользователя с упоминанием Алевтины")
                         else:
@@ -274,13 +316,13 @@ class UserBotManager:
                             return
                 elif is_mention:
                     # Если это упоминание, определяем по имени в сообщении
-                    if BOT1_NAME in message_text or 'daniel' in message_text.lower():
+                    if any(name in message_text for name in [BOT1_NAME, "Daniel", "Даниэль", "Даниель"]) or any(name in message_text.lower() for name in ['daniel', 'даниэль', 'даниель']):
                         bot_name = BOT1_NAME
                         logger.info(f"✅ Упоминание Daniel")
-                    elif BOT2_NAME in message_text or 'leonardo' in message_text.lower():
+                    elif any(name in message_text for name in [BOT2_NAME, "Leonardo", "Леонардо"]) or any(name in message_text.lower() for name in ['leonardo', 'леонардо']):
                         bot_name = BOT2_NAME
                         logger.info(f"✅ Упоминание Leonardo")
-                    elif BOT3_NAME in message_text or 'алевтина' in message_text.lower() or 'алевтину' in message_text.lower():
+                    elif any(name in message_text for name in [BOT3_NAME, "Алевтина"]) or any(name in message_text.lower() for name in ['алевтина', 'алевтину', 'alevtina']):
                         bot_name = BOT3_NAME
                         logger.info(f"✅ Упоминание Алевтины")
                     else:
@@ -387,7 +429,28 @@ class UserBotManager:
                 recent_history = self.conversation_history[-5:] if len(self.conversation_history) > 5 else self.conversation_history
                 history_text = "\n".join([f"{msg['sender']}: {msg['message']}" for msg in recent_history])
                 
-                context = f"""Сообщение: {message_text}
+                # Определяем тип взаимодействия
+                if talk_match:
+                    interaction_type = "bot_to_bot_command"
+                    context = f"""Сообщение: {message_text}
+Отвечает: {bot_name}
+Тип: Команда от бота к боту
+
+ИСТОРИЯ ДИАЛОГА (НЕ ПОВТОРЯЙ ЭТИ ТЕМЫ И ФРАЗЫ):
+{history_text}
+
+КРИТИЧЕСКИ ВАЖНО:
+- Это обращение одного бота к другому боту
+- Отвечай как будто тебя попросили поговорить с конкретным ботом
+- Будь естественным и дружелюбным
+- НЕ используй фразы из истории диалога
+- ИЗБЕГАЙ слов: "надежность", "безопасность", "качества", "must-have"
+- Переключись на НОВУЮ тему: личная жизнь, увлечения, планы, истории, работа
+- Будь ЖИВЫМ и естественным, а не шаблонным
+- Каждый ответ должен быть УНИКАЛЬНЫМ"""
+                else:
+                    interaction_type = "normal"
+                    context = f"""Сообщение: {message_text}
 Отвечает: {bot_name}
 
 ИСТОРИЯ ДИАЛОГА (НЕ ПОВТОРЯЙ ЭТИ ТЕМЫ И ФРАЗЫ):
