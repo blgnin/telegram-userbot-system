@@ -218,7 +218,7 @@ class UserBotManager:
                 logger.info(f"🎯 talk_match: {talk_match.group(1)}")
                 logger.info(f"🎯 is_reply: {is_reply}, is_mention: {is_mention}")
             
-            # Обрабатываем команду "поговори с [бот]" или Reply/упоминания
+            # Обрабатываем команду "поговори с [бот]" или Reply/упоминания или обычные сообщения с обращением
             if talk_match or is_reply or is_mention:
                 logger.info(f"👤 Получен ответ на сообщение: {message_text}")
                 logger.info(f"🔍 ID отправителя: {sender_id}")
