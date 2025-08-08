@@ -1,11 +1,10 @@
-# Используем официальный Python образ
 FROM python:3.11-slim
 
 # Устанавливаем рабочую директорию
 WORKDIR /app
 
-# Копируем файлы требований
-COPY "kursor bot sasha/requirements.txt" ./requirements.txt
+# Копируем файлы зависимостей
+COPY requirements.txt .
 
 # Устанавливаем зависимости
 RUN pip install --no-cache-dir -r requirements.txt
@@ -13,8 +12,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Копируем весь проект
 COPY . .
 
-# Устанавливаем рабочую директорию для запуска
-WORKDIR /app/kursor bot sasha
+# Устанавливаем переменную окружения для Python
+ENV PYTHONPATH=/app
 
-# Команда запуска
-CMD ["python", "main_userbot.py"]
+# Открываем порт
+EXPOSE 8000
+
+# Команда запуска (для Fly.io используем main.py)
+CMD ["python", "main.py"]

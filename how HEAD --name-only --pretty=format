@@ -1,0 +1,11 @@
+[33mcommit a5347c04eae70baffc318b9b295923ed28b211a6[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m)[m
+Author: Shlyapa Bot Developer <user@example.com>
+Date:   Thu Aug 7 18:11:43 2025 +0200
+
+    🚀 обавлены файлы для Render.com деплоя: session файлы + natural_speech данные
+
+.gitignore
+kursor bot sasha/config.py
+session1.session
+session2.session
+session3.session
