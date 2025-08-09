@@ -23,7 +23,7 @@ class NaturalSpeechHandler:
         """Загружает данные естественной речи из файлов"""
         try:
             if not os.path.exists(self.natural_speech_dir):
-                print(f"⚠️ Папка {self.natural_speech_dir} не найдена. Запустите сначала chat_parser.py")
+                print(f"Папка {self.natural_speech_dir} не найдена. Запустите сначала chat_parser.py")
                 return
             
             categories = ['general', 'questions', 'statements', 'emotional', 'conversation_starters']
@@ -34,16 +34,16 @@ class NaturalSpeechHandler:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         data = json.load(f)
                         self.speech_data[category] = data.get('messages', [])
-                        print(f"✅ Загружено {len(self.speech_data[category])} сообщений: {category}")
+                        print(f"Загружено {len(self.speech_data[category])} сообщений: {category}")
                 else:
                     self.speech_data[category] = []
-                    print(f"⚠️ Файл не найден: {file_path}")
+                    print(f"Файл не найден: {file_path}")
             
             total_messages = sum(len(messages) for messages in self.speech_data.values())
-            print(f"📊 Всего загружено естественных сообщений: {total_messages}")
+            print(f"Всего загружено естественных сообщений: {total_messages}")
             
         except Exception as e:
-            print(f"❌ Ошибка при загрузке естественной речи: {e}")
+            print(f"Ошибка при загрузке естественной речи: {e}")
             self.speech_data = {cat: [] for cat in ['general', 'questions', 'statements', 'emotional', 'conversation_starters']}
     
     def get_natural_response(self, message: str, bot_name: str, context: str = "") -> Optional[str]:
@@ -83,7 +83,7 @@ class NaturalSpeechHandler:
             return adapted_response
             
         except Exception as e:
-            print(f"❌ Ошибка при генерации естественного ответа: {e}")
+            print(f"Ошибка при генерации естественного ответа: {e}")
             return None
     
     def _filter_relevant_responses(self, responses: List[str], message_lower: str, context: str) -> List[str]:
@@ -272,7 +272,7 @@ class NaturalSpeechHandler:
             return ai_response
             
         except Exception as e:
-            print(f"❌ Ошибка при улучшении AI ответа: {e}")
+            print(f"Ошибка при улучшении AI ответа: {e}")
             return ai_response
     
     def get_statistics(self) -> Dict[str, int]:

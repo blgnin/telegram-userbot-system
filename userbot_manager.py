@@ -1,10 +1,12 @@
 import asyncio
 import logging
 import random
+import os
 from datetime import datetime, timedelta
 from telethon import TelegramClient, events
+from telethon.sessions import StringSession
 from telethon.tl.types import PeerUser, PeerChat
-from config import BOT1_TOKEN, BOT2_TOKEN, BOT3_TOKEN, CHAT_ID, BOT1_NAME, BOT2_NAME, BOT3_NAME
+from config import BOT1_TOKEN, BOT2_TOKEN, BOT3_TOKEN, CHAT_ID, CONTROL_CHAT_ID, BOT1_NAME, BOT2_NAME, BOT3_NAME
 from ai_handler import AIHandler
 from auto_conversation_topics import get_unused_topic
 
@@ -26,10 +28,27 @@ class UserBotManager:
 
     def __init__(self):
         try:
-            # Создаем клиенты для юзер-ботов
-            self.client1 = TelegramClient('session1', api_id=2040, api_hash='b18441a1ff607e10a989891a5462e627')
-            self.client2 = TelegramClient('session2', api_id=2040, api_hash='b18441a1ff607e10a989891a5462e627')
-            self.client3 = TelegramClient('session3', api_id=2040, api_hash='b18441a1ff607e10a989891a5462e627')
+            # Имена и строковые сессии из ENV (для разделения окружений и обхода IP-конфликтов)
+            session1_name = os.getenv('SESSION1_NAME', 'session1')
+            session2_name = os.getenv('SESSION2_NAME', 'session2')
+            session3_name = os.getenv('SESSION3_NAME', 'session3')
+
+            session1_string = os.getenv('SESSION1_STRING') or os.getenv('BOT1_STRING_SESSION')
+            session2_string = os.getenv('SESSION2_STRING') or os.getenv('BOT2_STRING_SESSION')
+            session3_string = os.getenv('SESSION3_STRING') or os.getenv('BOT3_STRING_SESSION')
+
+            # Флаги наличия строковых сессий
+            self._has_string_session1 = bool(session1_string)
+            self._has_string_session2 = bool(session2_string)
+            self._has_string_session3 = bool(session3_string)
+
+            # Создаем клиенты для юзер-ботов (StringSession при наличии строки)
+            self.client1 = TelegramClient(StringSession(session1_string) if session1_string else session1_name,
+                                          api_id=2040, api_hash='b18441a1ff607e10a989891a5462e627')
+            self.client2 = TelegramClient(StringSession(session2_string) if session2_string else session2_name,
+                                          api_id=2040, api_hash='b18441a1ff607e10a989891a5462e627')
+            self.client3 = TelegramClient(StringSession(session3_string) if session3_string else session3_name,
+                                          api_id=2040, api_hash='b18441a1ff607e10a989891a5462e627')
             
             self.ai_handler = AIHandler()
             self.conversation_active = False
@@ -56,6 +75,9 @@ class UserBotManager:
 
             
             logger.info(f"✅ Юзер-боты инициализированы: {BOT1_NAME}, {BOT2_NAME}, {BOT3_NAME}")
+            # Очередность и лимит частоты ответов на /check
+            self.last_check_times = {BOT1_NAME: None, BOT2_NAME: None, BOT3_NAME: None}
+            self.next_check_responder = BOT1_NAME
         except Exception as e:
             logger.error(f"❌ Ошибка инициализации юзер-ботов: {e}")
             raise
@@ -65,9 +87,9 @@ class UserBotManager:
     async def start_conversation(self, event):
         """Начинает разговор между юзер-ботами"""
         try:
-            # Проверяем, что команда из нужного чата
-            if str(event.chat_id) != str(CHAT_ID):
-                logger.info(f"🚫 Команда /start не из целевого чата: {event.chat_id} != {CHAT_ID}")
+            # Разрешаем /start только из управляющего чата
+            if str(event.chat_id) != str(CONTROL_CHAT_ID):
+                logger.info(f"🚫 Команда /start не из управляющего чата: {event.chat_id} != {CONTROL_CHAT_ID}")
                 return
             
             if self.conversation_active:
@@ -79,8 +101,8 @@ class UserBotManager:
             self.current_speaker = BOT1_NAME
             self.ai_handler.clear_history()
             self.conversation_history = []  # Очищаем историю диалога
-            self.message_counters = {BOT1_NAME: 0, BOT2_NAME: 0, BOT3_NAME: 0}  # Сбрасываем счетчики
-            self.message_queue = {BOT1_NAME: [], BOT2_NAME: [], BOT3_NAME: []}  # Очищаем очереди сообщений
+            self.message_counters = {BOT1_NAME: 0, BOT2_NAME: 0}  # Сбрасываем счетчики
+            self.message_queue = {BOT1_NAME: [], BOT2_NAME: []}  # Очищаем очереди сообщений
             self.user_message_queue = []  # Очищаем очередь пользователей
             self.processing_user_messages = False  # Сбрасываем флаг обработки
             self.processed_messages.clear()  # Очищаем кэш обработанных сообщений
@@ -108,9 +130,9 @@ class UserBotManager:
     async def stop_conversation(self, event):
         """Останавливает разговор между юзер-ботами"""
         try:
-            # Проверяем, что команда из нужного чата
-            if str(event.chat_id) != str(CHAT_ID):
-                logger.info(f"🚫 Команда /stop не из целевого чата: {event.chat_id} != {CHAT_ID}")
+            # Разрешаем /stop только из управляющего чата
+            if str(event.chat_id) != str(CONTROL_CHAT_ID):
+                logger.info(f"🚫 Команда /stop не из управляющего чата: {event.chat_id} != {CONTROL_CHAT_ID}")
                 return
             
             self.conversation_active = False
@@ -190,9 +212,11 @@ class UserBotManager:
                 for old_msg in old_messages:
                     self.processed_messages.discard(old_msg)
             
-            # Проверяем, что сообщение из нужного чата
+            # Полный игнор сообщений из управляющего чата
+            if str(chat_id) == str(CONTROL_CHAT_ID):
+                return
+            # Проверяем, что сообщение из рабочего чата
             if str(chat_id) != str(CHAT_ID):
-                logger.info(f"🚫 Сообщение не из целевого чата: {chat_id} != {CHAT_ID}")
                 return
             
             # Проверяем, является ли это ответом на сообщение (Reply), упоминанием (@) или обычным сообщением
@@ -202,35 +226,16 @@ class UserBotManager:
                 BOT1_NAME in message_text or 
                 BOT2_NAME in message_text or 
                 BOT3_NAME in message_text or
-                any(name in message_text.lower() for name in ['daniel', 'даниэль', 'даниель']) or
-                any(name in message_text.lower() for name in ['leonardo', 'леонардо']) or
-                any(name in message_text.lower() for name in ['алевтина', 'алевтину', 'alevtina'])
+                'daniel' in message_text.lower() or
+                'leonardo' in message_text.lower() or
+                'алевтина' in message_text.lower() or
+                'алевтину' in message_text.lower()
             ))
             
-            # Проверяем команду "поговори с [бот]"
-            talk_to_bot_pattern = r'поговори\s+с\s+(\w+)'
-            import re
-            talk_match = re.search(talk_to_bot_pattern, message_text.lower())
-            
-            # Добавляем логирование для отладки
-            if talk_match:
-                logger.info(f"🎯 Обнаружена команда 'поговори с [бот]': {message_text}")
-                logger.info(f"🎯 talk_match: {talk_match.group(1)}")
-                logger.info(f"🎯 is_reply: {is_reply}, is_mention: {is_mention}")
-            
-            # Обрабатываем команду "поговори с [бот]" или Reply/упоминания или обычные сообщения с обращением
-            if talk_match or is_reply or is_mention:
+            # Обрабатываем только Reply или упоминания (@)
+            if is_reply or is_mention:
                 logger.info(f"👤 Получен ответ на сообщение: {message_text}")
                 logger.info(f"🔍 ID отправителя: {sender_id}")
-            else:
-                # Проверяем обращение по имени в обычном сообщении
-                logger.info(f"🔍 Проверяем обычное сообщение на обращение к боту: {message_text}")
-                if any(name in message_text for name in [BOT1_NAME, "Daniel", "Даниэль", "Даниель", "Leonardo", "Леонардо", "Алевтина"]) or any(name in message_text.lower() for name in ['daniel', 'даниэль', 'даниель', 'leonardo', 'леонардо', 'алевтина', 'алевтину', 'alevtina']):
-                    logger.info(f"✅ Обнаружено обращение к боту в обычном сообщении")
-                    # Продолжаем обработку
-                else:
-                    logger.info(f"🚫 Нет обращения к боту, игнорируем")
-                    return
                 
                 # Получаем ID ботов
                 me1 = await self.client1.get_me()
@@ -266,75 +271,7 @@ class UserBotManager:
                     replied_message = None
                 
                 # Определяем какой бот должен ответить
-                if talk_match:
-                    # Если это команда "поговори с [бот]" - ПРИОРИТЕТ НАД ВСЕМ
-                    target_bot = talk_match.group(1).lower()
-                    logger.info(f"🎯 Команда 'поговори с {target_bot}' - ПРИОРИТЕТНАЯ ОБРАБОТКА")
-                    
-                    # Если команда от пользователя как Reply к боту, то отвечает ТОТ ЖЕ бот
-                    if is_reply and is_user_message:
-                        # Определяем, к какому боту был Reply - ЭТО БУДЕТ ОТВЕЧАТЬ
-                        if replied_message.sender_id == me1.id:
-                            bot_name = BOT1_NAME  # Daniel будет отвечать
-                            logger.info(f"🎯 Пользователь отправил команду Reply к Daniel")
-                        elif replied_message.sender_id == me2.id:
-                            bot_name = BOT2_NAME  # Leonardo будет отвечать
-                            logger.info(f"🎯 Пользователь отправил команду Reply к Leonardo")
-                        elif replied_message.sender_id == me3.id:
-                            bot_name = BOT3_NAME  # Алевтина будет отвечать
-                            logger.info(f"🎯 Пользователь отправил команду Reply к Алевтине")
-                        else:
-                            logger.info(f"🚫 Неизвестный бот для Reply")
-                            return
-                        
-                        # Проверяем, что бот не пытается поговорить с самим собой
-                        if bot_name == BOT1_NAME and target_bot in ['daniel', 'даниэль', 'данил', 'даниель']:
-                            logger.info(f"🚫 Daniel пытается поговорить с самим собой, игнорируем")
-                            return
-                        elif bot_name == BOT2_NAME and target_bot in ['leonardo', 'леонардо']:
-                            logger.info(f"🚫 Leonardo пытается поговорить с самим собой, игнорируем")
-                            return
-                        elif bot_name == BOT3_NAME and target_bot in ['алевтина', 'алевтину', 'alevtina']:
-                            logger.info(f"🚫 Алевтина пытается поговорить с самой собой, игнорируем")
-                            return
-                        
-                        logger.info(f"✅ {bot_name} будет обращаться к {target_bot}")
-                    else:
-                        # Если команда от бота к боту
-                        # Определяем отправителя команды
-                        if sender_id == me1.id:
-                            sender_bot = BOT1_NAME
-                        elif sender_id == me2.id:
-                            sender_bot = BOT2_NAME
-                        elif sender_id == me3.id:
-                            sender_bot = BOT3_NAME
-                        else:
-                            sender_bot = "user"
-                        
-                        # Проверяем, что бот не обращается к самому себе
-                        if sender_bot != "user" and (
-                            (sender_bot == BOT1_NAME and target_bot in ['daniel', 'даниэль', 'данил', 'даниель']) or
-                            (sender_bot == BOT2_NAME and target_bot in ['leonardo', 'леонардо']) or
-                            (sender_bot == BOT3_NAME and target_bot in ['алевтина', 'алевтину', 'alevtina'])
-                        ):
-                            logger.info(f"🚫 Бот {sender_bot} пытается поговорить с самим собой, игнорируем")
-                            return
-                        
-                        # Определяем целевого бота по команде
-                        if target_bot in ['daniel', 'даниэль', 'данил', 'daniel', 'даниель']:
-                            bot_name = BOT1_NAME
-                            logger.info(f"✅ Команда поговорить с Daniel")
-                        elif target_bot in ['leonardo', 'леонардо', 'leonardo']:
-                            bot_name = BOT2_NAME
-                            logger.info(f"✅ Команда поговорить с Leonardo")
-                        elif target_bot in ['алевтина', 'алевтину', 'alevtina', 'алевтина']:
-                            bot_name = BOT3_NAME
-                            logger.info(f"✅ Команда поговорить с Алевтиной")
-                        else:
-                            logger.info(f"🚫 Неизвестный бот в команде: {target_bot}")
-                            return
-                        
-                elif is_reply:
+                if is_reply:
                     # Если это Reply на сообщение бота, отвечает ТОТ ЖЕ бот
                     if replied_message.sender_id == me1.id:  # Если Reply на сообщение Daniel
                         bot_name = BOT1_NAME  # Отвечает Daniel
@@ -347,13 +284,13 @@ class UserBotManager:
                         logger.info(f"✅ Reply на Алевтину → отвечает Алевтина")
                     else:
                         # Если Reply на сообщение пользователя, определяем по упоминаниям
-                        if any(name in message_text for name in ["Daniel", "Даниэль", "Даниель", "водитель"]):
+                        if "Daniel" in message_text or "водитель" in message_text:
                             bot_name = BOT1_NAME
                             logger.info(f"✅ Reply на пользователя с упоминанием Daniel")
-                        elif any(name in message_text for name in ["Leonardo", "Леонардо", "пассажир"]):
+                        elif "Leonardo" in message_text or "пассажир" in message_text:
                             bot_name = BOT2_NAME
                             logger.info(f"✅ Reply на пользователя с упоминанием Leonardo")
-                        elif any(name in message_text for name in ["Алевтина", "алевтина", "критик"]):
+                        elif "Алевтина" in message_text or "критик" in message_text or "алевтина" in message_text:
                             bot_name = BOT3_NAME
                             logger.info(f"✅ Reply на пользователя с упоминанием Алевтины")
                         else:
@@ -361,36 +298,17 @@ class UserBotManager:
                             return
                 elif is_mention:
                     # Если это упоминание, определяем по имени в сообщении
-                    if any(name in message_text for name in [BOT1_NAME, "Daniel", "Даниэль", "Даниель"]) or any(name in message_text.lower() for name in ['daniel', 'даниэль', 'даниель']):
+                    if BOT1_NAME in message_text or 'daniel' in message_text.lower():
                         bot_name = BOT1_NAME
                         logger.info(f"✅ Упоминание Daniel")
-                    elif any(name in message_text for name in [BOT2_NAME, "Leonardo", "Леонардо"]) or any(name in message_text.lower() for name in ['leonardo', 'леонардо']):
+                    elif BOT2_NAME in message_text or 'leonardo' in message_text.lower():
                         bot_name = BOT2_NAME
                         logger.info(f"✅ Упоминание Leonardo")
-                    elif any(name in message_text for name in [BOT3_NAME, "Алевтина"]) or any(name in message_text.lower() for name in ['алевтина', 'алевтину', 'alevtina']):
+                    elif BOT3_NAME in message_text or 'алевтина' in message_text.lower() or 'алевтину' in message_text.lower():
                         bot_name = BOT3_NAME
                         logger.info(f"✅ Упоминание Алевтины")
                     else:
                         logger.info(f"🚫 Неизвестное упоминание, игнорируем")
-                        return
-                else:
-                    # Если это обычное сообщение, проверяем обращение по имени
-                    logger.info(f"🔍 Проверяем обращение в сообщении: '{message_text}'")
-                    logger.info(f"🔍 Проверяем на Daniel: {any(name in message_text for name in [BOT1_NAME, 'Daniel', 'Даниэль', 'Даниель'])}")
-                    logger.info(f"🔍 Проверяем на Leonardo: {any(name in message_text for name in [BOT2_NAME, 'Leonardo', 'Леонардо'])}")
-                    logger.info(f"🔍 Проверяем на Алевтину: {any(name in message_text for name in [BOT3_NAME, 'Алевтина'])}")
-                    
-                    if any(name in message_text for name in [BOT1_NAME, "Daniel", "Даниэль", "Даниель"]) or any(name in message_text.lower() for name in ['daniel', 'даниэль', 'даниель']):
-                        bot_name = BOT1_NAME
-                        logger.info(f"✅ Обращение к Daniel в сообщении")
-                    elif any(name in message_text for name in [BOT2_NAME, "Leonardo", "Леонардо"]) or any(name in message_text.lower() for name in ['leonardo', 'леонардо']):
-                        bot_name = BOT2_NAME
-                        logger.info(f"✅ Обращение к Leonardo в сообщении")
-                    elif any(name in message_text for name in [BOT3_NAME, "Алевтина"]) or any(name in message_text.lower() for name in ['алевтина', 'алевтину', 'alevtina']):
-                        bot_name = BOT3_NAME
-                        logger.info(f"✅ Обращение к Алевтине в сообщении")
-                    else:
-                        logger.info(f"🚫 Нет обращения к боту в сообщении, игнорируем")
                         return
                         
                 # Проверяем, что боты не отвечают на системные сообщения
@@ -493,28 +411,7 @@ class UserBotManager:
                 recent_history = self.conversation_history[-5:] if len(self.conversation_history) > 5 else self.conversation_history
                 history_text = "\n".join([f"{msg['sender']}: {msg['message']}" for msg in recent_history])
                 
-                # Определяем тип взаимодействия
-                if talk_match:
-                    interaction_type = "bot_to_bot_command"
-                    context = f"""Сообщение: {message_text}
-Отвечает: {bot_name}
-Тип: Команда от бота к боту
-
-ИСТОРИЯ ДИАЛОГА (НЕ ПОВТОРЯЙ ЭТИ ТЕМЫ И ФРАЗЫ):
-{history_text}
-
-КРИТИЧЕСКИ ВАЖНО:
-- Это обращение одного бота к другому боту
-- Отвечай как будто тебя попросили поговорить с конкретным ботом
-- Будь естественным и дружелюбным
-- НЕ используй фразы из истории диалога
-- ИЗБЕГАЙ слов: "надежность", "безопасность", "качества", "must-have"
-- Переключись на НОВУЮ тему: личная жизнь, увлечения, планы, истории, работа
-- Будь ЖИВЫМ и естественным, а не шаблонным
-- Каждый ответ должен быть УНИКАЛЬНЫМ"""
-                else:
-                    interaction_type = "normal"
-                    context = f"""Сообщение: {message_text}
+                context = f"""Сообщение: {message_text}
 Отвечает: {bot_name}
 
 ИСТОРИЯ ДИАЛОГА (НЕ ПОВТОРЯЙ ЭТИ ТЕМЫ И ФРАЗЫ):
@@ -550,55 +447,14 @@ class UserBotManager:
                 # Отправляем ТОЛЬКО ОДИН ответ пользователю от правильного бота
                 logger.info(f"📤 Отправляем ЕДИНСТВЕННОЕ сообщение от {bot_name}: {response[:50]}...")
                 logger.info(f"🔍 Сравниваем: bot_name='{bot_name}', BOT1_NAME='{BOT1_NAME}', BOT2_NAME='{BOT2_NAME}', BOT3_NAME='{BOT3_NAME}'")
-                
-                # Если это команда "поговори с [бот]", делаем Reply на последнее сообщение целевого бота
-                if talk_match:
-                    target_bot = talk_match.group(1).lower()
-                    logger.info(f"🎯 Команда 'поговори с {target_bot}' - ищем последнее сообщение целевого бота")
-                    
-                    # Определяем ID целевого бота
-                    target_bot_id = None
-                    if target_bot in ['daniel', 'даниэль', 'данил', 'daniel', 'даниель']:
-                        target_bot_id = me1.id
-                    elif target_bot in ['leonardo', 'леонардо', 'leonardo']:
-                        target_bot_id = me2.id
-                    elif target_bot in ['алевтина', 'алевтину', 'alevtina', 'алевтина']:
-                        target_bot_id = me3.id
-                    
-                    if target_bot_id:
-                        # Ищем последнее сообщение целевого бота в истории
-                        try:
-                            # Получаем последние сообщения из чата
-                            messages = await event.client.get_messages(event.chat_id, limit=50)
-                            target_message = None
-                            
-                            for msg in messages:
-                                if msg.sender_id == target_bot_id and msg.text:
-                                    target_message = msg
-                                    break
-                            
-                            if target_message:
-                                logger.info(f"✅ Найдено сообщение целевого бота для Reply: {target_message.text[:30]}...")
-                                reply_to_message_id = target_message.id
-                            else:
-                                logger.info(f"⚠️ Не найдено сообщение целевого бота, используем обычный Reply")
-                                reply_to_message_id = event.message.id
-                        except Exception as e:
-                            logger.error(f"❌ Ошибка при поиске сообщения целевого бота: {e}")
-                            reply_to_message_id = event.message.id
-                    else:
-                        reply_to_message_id = event.message.id
-                else:
-                    reply_to_message_id = event.message.id
-                
                 if bot_name == BOT1_NAME:  # Daniel
-                    await self.client1.send_message(event.chat_id, response, reply_to=reply_to_message_id)
+                    await self.client1.send_message(event.chat_id, response, reply_to=event.message.id)
                     logger.info(f"✅ {BOT1_NAME} отправил ОДИН ответ через client1")
                 elif bot_name == BOT2_NAME:  # Leonardo
-                    await self.client2.send_message(event.chat_id, response, reply_to=reply_to_message_id)
+                    await self.client2.send_message(event.chat_id, response, reply_to=event.message.id)
                     logger.info(f"✅ {BOT2_NAME} отправил ОДИН ответ через client2")
                 elif bot_name == BOT3_NAME:  # Алевтина
-                    await self.client3.send_message(event.chat_id, response, reply_to=reply_to_message_id)
+                    await self.client3.send_message(event.chat_id, response, reply_to=event.message.id)
                     logger.info(f"✅ {BOT3_NAME} отправила ОДИН ответ через client3")
                 else:
                     logger.error(f"❌ Неизвестный бот: '{bot_name}'. Доступные: '{BOT1_NAME}', '{BOT2_NAME}', '{BOT3_NAME}'")
@@ -857,8 +713,8 @@ class UserBotManager:
             
             logger.info(f"💬 {bot_name} ответил на сообщение пользователя из очереди")
             
-            # НЕ вызываем рекурсивно - это может вызывать дублирование
-            # Очередь будет обработана в следующем цикле
+            # Рекурсивно обрабатываем следующее сообщение пользователя в очереди
+            await self.process_user_message_queue()
             
         except Exception as e:
             logger.error(f"❌ Ошибка при обработке сообщения пользователя из очереди: {e}")
@@ -876,7 +732,13 @@ class UserBotManager:
                 raise ValueError("Номер телефона для первого юзер-бота не найден. Проверьте файл shlyapa1.env")
             
             # Подключаемся к Telegram
-            await self.client1.start(phone=BOT1_TOKEN)
+            if getattr(self, '_has_string_session1', False):
+                # Уже авторизованная строковая сессия — просто подключаемся
+                await self.client1.connect()
+                if not await self.client1.is_user_authorized():
+                    await self.client1.start(phone=BOT1_TOKEN)
+            else:
+                await self.client1.start(phone=BOT1_TOKEN)
             
             # Регистрируем обработчики событий
             @self.client1.on(events.NewMessage(pattern='/start'))
@@ -887,6 +749,10 @@ class UserBotManager:
             async def stop_handler(event):
                 await self.stop_conversation(event)
             
+            @self.client1.on(events.NewMessage(pattern='/check'))
+            async def check_handler(event):
+                await self.handle_check_command(event, BOT1_NAME, self.client1)
+
             @self.client1.on(events.NewMessage())
             async def message_handler(event):
                 try:
@@ -911,7 +777,12 @@ class UserBotManager:
                 raise ValueError("Номер телефона для второго юзер-бота не найден. Проверьте файл shlyapa1.env")
             
             # Подключаемся к Telegram
-            await self.client2.start(phone=BOT2_TOKEN)
+            if getattr(self, '_has_string_session2', False):
+                await self.client2.connect()
+                if not await self.client2.is_user_authorized():
+                    await self.client2.start(phone=BOT2_TOKEN)
+            else:
+                await self.client2.start(phone=BOT2_TOKEN)
             
             # Регистрируем обработчики событий
             @self.client2.on(events.NewMessage(pattern='/start'))
@@ -922,6 +793,10 @@ class UserBotManager:
             async def stop_handler(event):
                 await self.stop_conversation(event)
             
+            @self.client2.on(events.NewMessage(pattern='/check'))
+            async def check_handler(event):
+                await self.handle_check_command(event, BOT2_NAME, self.client2)
+
             @self.client2.on(events.NewMessage())
             async def message_handler(event):
                 try:
@@ -946,7 +821,12 @@ class UserBotManager:
                 raise ValueError("Номер телефона для третьего юзер-бота не найден. Проверьте файл shlyapa1.env")
             
             # Подключаемся к Telegram
-            await self.client3.start(phone=BOT3_TOKEN)
+            if getattr(self, '_has_string_session3', False):
+                await self.client3.connect()
+                if not await self.client3.is_user_authorized():
+                    await self.client3.start(phone=BOT3_TOKEN)
+            else:
+                await self.client3.start(phone=BOT3_TOKEN)
             
             # Регистрируем обработчики событий
             @self.client3.on(events.NewMessage(pattern='/start'))
@@ -957,6 +837,10 @@ class UserBotManager:
             async def stop_handler(event):
                 await self.stop_conversation(event)
             
+            @self.client3.on(events.NewMessage(pattern='/check'))
+            async def check_handler(event):
+                await self.handle_check_command(event, BOT3_NAME, self.client3)
+
             @self.client3.on(events.NewMessage())
             async def message_handler(event):
                 try:
@@ -972,6 +856,47 @@ class UserBotManager:
         except Exception as e:
             logger.error(f"❌ Ошибка настройки {BOT3_NAME}: {e}")
             raise 
+
+    async def handle_check_command(self, event, this_bot_name, this_client):
+        """Ответ на /check: боты отвечают по очереди, не чаще, чем раз в 10 минут каждый."""
+        try:
+            # /check принимаем только из управляющего чата
+            if str(event.chat_id) != str(CONTROL_CHAT_ID):
+                return
+            # очередь
+            if self.next_check_responder != this_bot_name:
+                logger.info(f"/check: очередь {self.next_check_responder}, {this_bot_name} пропускает")
+                return
+            # частота
+            now = datetime.now()
+            last = self.last_check_times.get(this_bot_name)
+            if last and (now - last) < timedelta(minutes=10):
+                logger.info(f"/check: {this_bot_name} отвечал менее 10 минут назад, пропуск")
+                return
+            # текст
+            if self.next_auto_conversation_time:
+                diff = self.next_auto_conversation_time - now
+                total_seconds = int(diff.total_seconds())
+                if total_seconds <= 0:
+                    when_str = self.next_auto_conversation_time.strftime('%H:%M:%S')
+                    text = f"⏰ Следующая автобеседа должна начаться уже сейчас (план: {when_str})."
+                else:
+                    hours = total_seconds // 3600
+                    minutes = (total_seconds % 3600) // 60
+                    when_str = self.next_auto_conversation_time.strftime('%H:%M:%S')
+                    text = f"📅 Следующая автобеседа запланирована на {when_str} (через {hours}ч {minutes}м)."
+            else:
+                text = "ℹ️ Следующая автобеседа пока не запланирована."
+            await this_client.send_message(event.chat_id, text, reply_to=event.message.id)
+            self.last_check_times[this_bot_name] = now
+            order = [BOT1_NAME, BOT2_NAME, BOT3_NAME]
+            try:
+                idx = order.index(this_bot_name)
+                self.next_check_responder = order[(idx + 1) % len(order)]
+            except Exception:
+                self.next_check_responder = BOT1_NAME
+        except Exception as e:
+            logger.error(f"❌ Ошибка в handle_check_command: {e}")
     
     async def can_bot_respond_to_bot(self, bot_name):
         """Проверяет, может ли конкретный бот ответить другому боту с учетом ограничений"""
